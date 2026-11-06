@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>멸종위기동물 서식지 구출 대작전</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- html2canvas for Image Saving -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap');
+
+        body {
+            font-family: 'Jua', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            background-color: #0f172a;
+            color: #fff;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            touch-action: none;
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        .glass-btn {
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .glass-btn:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+        }
+
+        .glass-btn:active {
+            transform: translateY(2px) scale(0.96);
+        }
+
+        .diff-btn {
+            transition: all 0.2s ease;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        .diff-btn.active {
+            border-color: #f59e0b;
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
+            background: rgba(245, 158, 11, 0.2);
+        }
+
+        .obs-label {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            background: rgba(220, 38, 38, 0.92);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            white-space: nowrap;
+            pointer-events: none;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        .obs-label::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 6px 6px 0;
+            border-style: solid;
+            border-color: rgba(220, 38, 38, 0.92) transparent;
+            display: block;
+            width: 0;
+        }
+
+        .basket-label {
+            position: absolute;
+            transform: translate(-50%, 0%);
+            background: rgba(245, 158, 11, 0.98);
+            color: #0f172a;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 900;
+            white-space: nowrap;
+            pointer-events: none;
+            border: 2px solid #ffffff;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.8);
+            z-index: 60;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main 3D Canvas -->
+    <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+    <!-- 3D HTML Labels Overlay Layer -->
+    <div id="labels-container" class="absolute inset-0 z-1 pointer-events-none overflow-hidden"></div>
+
+    <!-- HUD Overlay Header -->
+    <div id="hud-overlay" class="absolute top-0 left-0 right-0 z-10 p-3 md:p-4 pointer-events-none flex flex-col justify-between h-full">
+        <div class="flex justify-between items-start w-full">
+            <div class="glass-card px-4 py-2.5 rounded-2xl pointer-events-auto flex items-center gap-3">
+                <div class="text-amber-400 font-extrabold text-lg md:text-xl flex items-center gap-1.5">
+                    <span>🌍</span>
+                    <span id="hud-stage-num" class="text-amber-300">1</span>/6
+                </div>
+                <div class="h-6 w-px bg-white/20"></div>
+                <div>
+                    <div id="hud-stage-name" class="text-xs text-slate-300 font-sans">유럽 (온대 바다)</div>
+                    <div id="hud-animal-name" class="text-sm font-bold text-emerald-400">구출 대상: 푸른바다거북 🐢</div>
+                </div>
+            </div>
+
+            <div class="glass-card px-4 py-2.5 rounded-2xl pointer-events-auto flex items-center gap-3">
+                <div id="hud-shield" class="hidden text-emerald-400 text-lg animate-pulse" title="보호막 활성화">
+                    🛡️
+                </div>
+                <div id="hud-hp" class="flex gap-1 text-red-500 text-xl">
+                    <i class="fa-solid fa-heart"></i>
+                    <i class="fa-solid fa-heart"></i>
+                    <i class="fa-solid fa-heart"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- 터치 조작 패드 (모바일 및 태블릿 지원) -->
+        <div class="pointer-events-auto flex justify-between items-end w-full pb-2">
+            <div class="grid grid-cols-3 gap-1.5 w-32 h-32 md:w-40 md:h-40">
+                <div></div>
+                <button id="dpad-up" class="glass-card bg-slate-800/90 active:bg-amber-500/80 rounded-2xl flex items-center justify-center text-xl md:text-2xl text-white active:text-slate-900">▲</button>
+                <div></div>
+                <button id="dpad-left" class="glass-card bg-slate-800/90 active:bg-amber-500/80 rounded-2xl flex items-center justify-center text-xl md:text-2xl text-white active:text-slate-900">◀</button>
+                <div class="glass-card bg-slate-900/50 rounded-2xl flex items-center justify-center text-[10px] md:text-xs text-slate-500">이동</div>
+                <button id="dpad-right" class="glass-card bg-slate-800/90 active:bg-amber-500/80 rounded-2xl flex items-center justify-center text-xl md:text-2xl text-white active:text-slate-900">▶</button>
+                <div></div>
+                <button id="dpad-down" class="glass-card bg-slate-800/90 active:bg-amber-500/80 rounded-2xl flex items-center justify-center text-xl md:text-2xl text-white active:text-slate-900">▼</button>
+                <div></div>
+            </div>
+            <button id="btn-reset-stage" class="glass-card px-4 py-2.5 rounded-2xl text-xs font-bold text-amber-300 active:scale-95">
+                🔄 스테이지 재시작
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-item" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 glass-card px-6 py-3 rounded-full text-amber-300 font-bold text-sm md:text-base border-amber-400/50 shadow-2xl flex items-center gap-2 animate-bounce">
+        <span id="toast-msg">나뭇잎 보호막 획득!</span>
+    </div>
+
+    <!-- Start Modal -->
+    <div id="start-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="glass-card max-w-lg w-full p-6 md:p-8 rounded-3xl text-center border-amber-400/30">
+            <div class="inline-block p-3 rounded-2xl bg-amber-500/20 text-3xl mb-3">🌍🐾</div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-amber-300 mb-2">멸종위기동물 서식지 구출 대작전</h1>
+            <p class="text-xs md:text-sm text-slate-300 mb-6 font-sans">
+                전 세계 6개 대륙의 위험에 처한 멸종위기동물들을 안전하게 서식지로 구출해 주세요!<br>
+                장애물을 피하고 아이템을 모아 올바른 먹이를 전해주는 미션입니다.
+            </p>
+
+            <div class="mb-6">
+                <label class="block text-xs text-amber-300 font-bold mb-3">🎮 난이도를 선택해 주세요</label>
+                <div class="grid grid-cols-3 gap-3">
+                    <button id="diff-easy" class="diff-btn p-3 rounded-2xl glass-card text-center">
+                        <div class="text-xl mb-1">🐣</div>
+                        <div class="font-bold text-sm text-emerald-300">쉬움</div>
+                        <div class="text-[10px] text-slate-400 font-sans mt-1">5세 동생용<br>(느린 장애물 3개)</div>
+                    </button>
+                    <button id="diff-normal" class="diff-btn active p-3 rounded-2xl glass-card text-center">
+                        <div class="text-xl mb-1">🐯</div>
+                        <div class="font-bold text-sm text-amber-300">보통</div>
+                        <div class="text-[10px] text-slate-400 font-sans mt-1">우리반 추천<br>(표준 속도 5개)</div>
+                    </button>
+                    <button id="diff-hard" class="diff-btn p-3 rounded-2xl glass-card text-center">
+                        <div class="text-xl mb-1">🔥</div>
+                        <div class="font-bold text-sm text-red-400">어려움</div>
+                        <div class="text-[10px] text-slate-400 font-sans mt-1">도전자용<br>(빠른 속도 8개)</div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/60 p-4 rounded-2xl text-left text-xs text-slate-300 mb-6 font-sans border border-white/5 space-y-1">
+                <div>⌨️ <strong>키보드 조작:</strong> 화살표 키 (▲ ▼ ◀ ▶) 또는 W, A, S, D</div>
+                <div>📱 <strong>모바일/태블릿:</strong> 화면 하단 터치 방향키 패드</div>
+                <div>🍎 <strong>먹이주기:</strong> 동물 입 근처로 바구니의 먹이를 끌어다 넣기</div>
+            </div>
+
+            <button id="btn-start-game" class="glass-btn w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-emerald-500 text-slate-950 font-extrabold text-lg shadow-lg">
+                🚀 구출 미션 시작하기!
+            </button>
+        </div>
+    </div>
+
+    <!-- 3D Feeding Modal -->
+    <div id="feeding-modal" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-between p-4 bg-slate-950/90 backdrop-blur-md select-none">
+        <div class="glass-card px-6 py-2.5 rounded-2xl text-center border-amber-400/40 mt-2 z-10 max-w-md w-full">
+            <div class="text-amber-300 font-bold text-xs mb-0.5">🌿 서식지 도착! 3D 먹이주기 체험</div>
+            <h2 id="feeding-title" class="text-base md:text-xl font-extrabold text-white">구출한 동물의 입에 올바른 먹이를 넣어주세요!</h2>
+            <div id="feeding-feedback" class="text-xs md:text-sm font-bold text-amber-300 mt-1 h-6 flex items-center justify-center">
+                바구니의 이름표를 보고 동물이 좋아하는 먹이를 입에 드래그해 주세요!
+            </div>
+        </div>
+
+        <div id="feeding-canvas-container" class="absolute inset-0 w-full h-full z-0 cursor-grab active:cursor-grabbing"></div>
+        <div id="feeding-labels-container" class="absolute inset-0 pointer-events-none z-40 overflow-hidden"></div>
+    </div>
+
+    <!-- Stage Success Modal -->
+    <div id="success-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+        <div class="glass-card max-w-lg w-full p-6 rounded-3xl text-center border-emerald-400/40">
+            <div class="flex justify-between items-center mb-2">
+                <div class="text-xs font-bold text-emerald-400">🎉 STAGE CLEAR</div>
+                <!-- 20초 학습 타이머 배지 -->
+                <div id="study-timer-badge" class="bg-amber-500/20 text-amber-300 border border-amber-400/40 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                    <span>⏱️ 정보 확인:</span>
+                    <span id="study-timer-sec" class="text-amber-200 text-sm font-extrabold">20</span>초
+                </div>
+            </div>
+
+            <h2 id="card-title" class="text-2xl font-extrabold text-amber-300 mb-1">구출 성공!</h2>
+            <p id="card-subtitle" class="text-xs text-slate-300 mb-4 font-sans">동물을 서식지로 안전하게 보내주었습니다.</p>
+
+            <div class="bg-slate-900/80 p-5 rounded-2xl text-left border border-white/10 mb-6 font-sans">
+                <div class="flex items-center gap-3 mb-3">
+                    <div id="card-icon" class="text-4xl p-2 rounded-xl bg-amber-500/20">🐢</div>
+                    <div>
+                        <div id="card-animal-name" class="font-extrabold text-lg text-amber-300">푸른바다거북</div>
+                        <div id="card-status" class="text-xs text-red-400 font-bold">멸종위기 등급: 위기(EN)</div>
+                    </div>
+                </div>
+
+                <div class="space-y-2 text-xs text-slate-300">
+                    <div>🏡 <strong>대표 서식지:</strong> <span id="card-habitat-desc">유럽 해안 및 온대/열대 바다</span></div>
+                    <div>⚠️ <strong>멸종 위기 이유:</strong> <span id="card-threat-desc">해양 플라스틱 쓰레기 무단 투기</span></div>
+                    <div>🌱 <strong>우리의 약속:</strong> <span id="card-action-desc">일회용 플라스틱 줄이기</span></div>
+                </div>
+            </div>
+
+            <button id="btn-next-stage" class="glass-btn w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-extrabold text-base shadow-lg">
+                다음 대륙으로 이동 ➡️
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameover-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="glass-card max-w-md w-full p-6 rounded-3xl text-center border-red-500/40">
+            <div class="text-4xl mb-2">🚨</div>
+            <h2 class="text-2xl font-extrabold text-red-400 mb-2">동물이 부상을 입었어요!</h2>
+            <p class="text-xs text-slate-300 font-sans mb-6">
+                위험한 장애물에 부딪혀 체력이 모두 소진되었습니다.<br>
+                장애물을 피하고 아이템을 활용해 다시 도전해 보세요!
+            </p>
+            <button id="btn-retry" class="glass-btn w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-red-500 text-slate-950 font-extrabold text-base">
+                🔄 스테이지 다시 도전하기
+            </button>
+        </div>
+    </div>
+
+    <!-- Rule Warning / Penalty Modal (유럽 경고 & 규칙 위반 시 게임 강제종료 전용) -->
+    <div id="rule-alert-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="glass-card max-w-md w-full p-6 rounded-3xl text-center border-amber-400/50">
+            <div id="rule-alert-icon" class="text-4xl mb-2">⚠️</div>
+            <h2 id="rule-alert-title" class="text-xl font-extrabold text-amber-300 mb-2">멸종위기동물 정보를 확인해 주세요!</h2>
+            <p id="rule-alert-msg" class="text-xs md:text-sm text-slate-300 font-sans leading-relaxed mb-6 whitespace-pre-line">
+                멸종위기동물에 대한 정보를 꼼꼼히 확인해 주세요! 20초 후에 다음 대륙으로 이동할 수 있습니다. 다음 대륙부터는 정보를 확인하지 않고 바로 넘어가려 하면 게임이 끝납니다.
+            </p>
+            <button id="btn-rule-alert-close" class="glass-btn w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-emerald-500 text-slate-950 font-extrabold text-base">
+                확인했습니다 ➡️
+            </button>
+        </div>
+    </div>
+
+    <!-- Final Certificate Modal -->
+    <div id="certificate-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md overflow-y-auto">
+        <div id="printable-cert" class="glass-card max-w-xl w-full p-8 rounded-3xl text-center border-amber-400/60 my-auto bg-slate-900">
+            <div class="text-amber-400 text-4xl mb-2">🏆</div>
+            <div class="text-xs font-bold text-amber-300 tracking-widest mb-1">WORLD ENDANGERED SPECIES GUARDIAN</div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-white mb-4">세계 멸종위기 수호대 임명장</h1>
+
+            <div class="bg-amber-500/10 border-2 border-amber-400/30 p-6 rounded-2xl text-left font-sans mb-6 space-y-3">
+                <div class="text-center text-sm font-bold text-amber-200 mb-4">
+                    수여 대상: 멸종위기동물 구출 미션을 완수한 어린이 수호대 여러분 🌟
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed text-center">
+                    위 어린이 수호대는 전 세계 6개 대륙(유럽, 아시아, 남아메리카, 북아메리카, 오세아니아, 아프리카)의 멸종위기동물들을 위협하는 장애물을 지혜롭게 극복하고 안전한 서식지와 먹이를 전달해 주었으므로 **'세계 멸종위기 수호대'**로 공식 임명합니다.
+                </p>
+                <div class="text-center text-[10px] md:text-xs text-amber-400 font-bold pt-2">
+                    🐢 푸른바다거북 | 🐼 자이언트판다 | 🐆 재규어 | 🦬 아메리카바이손 | 🐨 코알라 | 🐘 아프리카코끼리
+                </div>
+            </div>
+
+            <!-- 진짜 수호대의 현실 실천 활동 유도 카드 (다시하기 버튼 대신 배치) -->
+            <div class="bg-emerald-950/80 border-2 border-emerald-400/50 p-6 rounded-2xl text-center font-sans space-y-3 shadow-xl">
+                <div class="text-2xl mb-1">🌱 🌟 🌱</div>
+                <h3 class="text-lg font-extrabold text-emerald-300">오늘의 진짜 수호대 현실 실천 미션!</h3>
+                <p class="text-xs text-slate-200 leading-relaxed">
+                    화면 속 동물들을 모두 구해주어서 참 고마워요!<br>
+                    이제 눈을 잠시 쉬어주고, 현실에서 진짜 수호대 미션을 실천하러 떠나볼까요?
+                </p>
+                <div class="grid grid-cols-2 gap-2 text-left text-[11px] font-bold text-emerald-200 pt-2">
+                    <div class="bg-emerald-900/60 p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                        <span>💡</span> 사용하지 않는 전등 끄기
+                    </div>
+                    <div class="bg-emerald-900/60 p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                        <span>🥤</span> 텀블러/개인 컵 사용하기
+                    </div>
+                    <div class="bg-emerald-900/60 p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                        <span>📄</span> 종이 아껴 쓰기 & 양면지
+                    </div>
+                    <div class="bg-emerald-900/60 p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                        <span>♻️</span> 올바른 분리배출 실천하기
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+        class SoundEngine {
+            constructor() { this.ctx = null; }
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+            playTone(freq, type, duration) {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            }
+            playStep() { this.playTone(180, 'sine', 0.05); }
+            playHit() { this.playTone(100, 'sawtooth', 0.25); }
+            playItem() { this.playTone(587.33, 'triangle', 0.15); }
+            playYum() {
+                this.playTone(440, 'sine', 0.1);
+                setTimeout(() => this.playTone(659.25, 'sine', 0.15), 100);
+            }
+            playWrong() { this.playTone(150, 'square', 0.2); }
+            playSuccess() {
+                [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
+                    setTimeout(() => this.playTone(f, 'triangle', 0.25), i * 120);
+                });
+            }
+        }
+        const sounds = new SoundEngine();
+
+        const STAGES = [
+            {
+                id: 1, continent: "유럽", location: "푸른 바다 & 산호초 바위",
+                animalName: "푸른바다거북", animalIcon: "🐢", status: "위기(EN)",
+                bgColor: 0x0284c7, floorColor: 0x38bdf8,
+                habitatDesc: "유럽 해안 및 온대/열대 바다 산호초",
+                threatDesc: "무단 투기된 플라스틱 쓰레기 및 폐어망",
+                actionDesc: "일회용 플라스틱 줄이기 및 분리배출 실천",
+                obsTypes: ["plastic", "ice"],
+                obsNames: ["🚨 바다 플라스틱 쓰레기", "🚨 표류하는 빙하 조각"],
+                foods: [
+                    { name: "대나무", type: "bamboo", correct: false },
+                    { name: "해조류/미역", type: "seaweed", correct: true },
+                    { name: "플라스틱 병", type: "trash", correct: false }
+                ]
+            },
+            {
+                id: 2, continent: "아시아", location: "대나무 숲 & 안개 산맥",
+                animalName: "자이언트판다", animalIcon: "🐼", status: "취약(VU)",
+                bgColor: 0x065f46, floorColor: 0x10b981,
+                habitatDesc: "아시아 울창한 대나무 산림 지대",
+                threatDesc: "무분별한 무단 산림 벌목 및 개발",
+                actionDesc: "종이 아껴 쓰기 및 재생 용지 사용하기",
+                obsTypes: ["saw", "log"],
+                obsNames: ["🚨 삼림 파괴 전동톱", "🚨 쓰러진 거목 장애물"],
+                foods: [
+                    { name: "사냥한 고기", type: "burger", correct: false },
+                    { name: "사탕 과자", type: "candy", correct: false },
+                    { name: "신선한 대나무", type: "bamboo", correct: true }
+                ]
+            },
+            {
+                id: 3, continent: "남아메리카", location: "아마존 열대우림 & 연못",
+                animalName: "재규어", animalIcon: "🐆", status: "취약(VU)",
+                bgColor: 0x166534, floorColor: 0x22c55e,
+                habitatDesc: "남아메리카 울창한 정글 및 강가",
+                threatDesc: "공장 독성 매연 및 환경 오염",
+                actionDesc: "대중교통 이용으로 온실가스 줄이기",
+                obsTypes: ["smog", "smog"],
+                obsNames: ["🚨 공장 독성 매연", "🚨 대기 오염 연기 기둥"],
+                foods: [
+                    { name: "신선한 대나무", type: "bamboo", correct: false },
+                    { name: "사냥한 열매/고기", type: "burger", correct: true },
+                    { name: "해조류", type: "seaweed", correct: false }
+                ]
+            },
+            {
+                id: 4, continent: "북아메리카", location: "암석 협곡 & 황금빛 대평원",
+                animalName: "아메리카바이손", animalIcon: "🦬", status: "취약(VU)",
+                bgColor: 0x9a3412, floorColor: 0xf97316,
+                habitatDesc: "북아메리카 광활한 대평원 및 협곡",
+                threatDesc: "기후변화로 인한 건조화 및 대형 산불",
+                actionDesc: "에너지 절약으로 지구온난화 막기",
+                obsTypes: ["fire", "fire"],
+                obsNames: ["🚨 번지는 대형 산불", "🚨 대형 산불 위험"],
+                foods: [
+                    { name: "생선 물고기", type: "fish", correct: false },
+                    { name: "플라스틱 쓰레기", type: "trash", correct: false },
+                    { name: "신선한 건초/풀", type: "hay", correct: true }
+                ]
+            },
+            {
+                id: 5, continent: "오세아니아", location: "유칼립투스 숲 & 유칼립투스 동산",
+                animalName: "코알라", animalIcon: "🐨", status: "위기(EN)",
+                bgColor: 0x047857, floorColor: 0x34d399,
+                habitatDesc: "호주 유칼립투스 숲 지대",
+                threatDesc: "산불 확산 및 유칼립투스 서식지 파괴",
+                actionDesc: "나무 심기 캠페인 및 기후 보호 실천",
+                obsTypes: ["fire", "saw"],
+                obsNames: ["🚨 숲을 위협하는 산불", "🚨 서식지 벌목 전동톱"],
+                foods: [
+                    { name: "유칼립투스 잎", type: "eucalyptus", correct: true },
+                    { name: "사냥한 고기", type: "burger", correct: false },
+                    { name: "생선 물고기", type: "fish", correct: false }
+                ]
+            },
+            {
+                id: 6, continent: "아프리카", location: "바오밥 오아시스 & 사바나 초원",
+                animalName: "아프리카코끼리", animalIcon: "🐘", status: "위기(EN)",
+                bgColor: 0x854d0e, floorColor: 0xeab308,
+                habitatDesc: "아프리카 초원 및 열대 우림",
+                threatDesc: "밀렵꾼의 불법 덫 및 생태계 파괴",
+                actionDesc: "야생동물 보호 캠페인 관심 가지기",
+                obsTypes: ["trap", "cage"],
+                obsNames: ["🚨 밀렵꾼의 철사 덫", "🚨 불법 포획 케이지"],
+                foods: [
+                    { name: "사탕 과자", type: "candy", correct: false },
+                    { name: "달콤한 바나나/열매", type: "banana", correct: true },
+                    { name: "폐플라스틱", type: "trash", correct: false }
+                ]
+            }
+        ];
+
+        let gameDifficulty = 'normal';
+        let currentStageIdx = 0;
+        let playerHp = 3;
+        let hasShield = false;
+        let freezeTimer = 0;
+        let isStageCleared = false;
+        let isFeedingActive = false;
+        let isEatingAnimating = false;
+
+        /* --- 20초 정보 확인 타이머 전용 변수 --- */
+        let studyTimerLeft = 20;
+        let studyTimerInterval = null;
+
+        const keyState = { Up: false, Down: false, Left: false, Right: false };
+
+        let scene, camera, renderer;
+        let animalMesh = null, animalHeadMesh = null;
+        let animalParts = { legs: [], flippers: [] };
+        let obstacles = [];
+        let items = [];
+
+        let feedScene, feedCamera, feedRenderer;
+        let feedAnimalMesh = null, feedAnimalHead = null;
+        let feed3DItems = [], feedBaskets = [];
+        let dragged3DItem = null;
+        const raycaster = new THREE.Raycaster();
+        const mouseVec = new THREE.Vector2();
+
+        function createHighQualityObstacleMesh(type) {
+            const group = new THREE.Group();
+
+            switch(type) {
+                case 'saw': {
+                    const bodyMat = new THREE.MeshLambertMaterial({ color: 0xd97706 });
+                    const metalMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.2 });
+                    const handleMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+
+                    const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.8), bodyMat);
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.35, 1.2), metalMat);
+                    blade.position.set(0, -0.05, -0.8);
+
+                    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.05, 8, 12), handleMat);
+                    handle.rotation.y = Math.PI / 2;
+                    handle.position.set(0, 0.25, 0.1);
+
+                    group.add(body, blade, handle);
+                    break;
+                }
+                case 'log': {
+                    const barkMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+                    const ringMat = new THREE.MeshLambertMaterial({ color: 0xfde047 });
+                    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 1.2, 12), barkMat);
+                    log.rotation.z = Math.PI / 2;
+                    
+                    const ringL = new THREE.Mesh(new THREE.CircleGeometry(0.5, 12), ringMat);
+                    ringL.rotation.y = -Math.PI / 2;
+                    ringL.position.x = -0.61;
+                    const ringR = ringL.clone();
+                    ringR.rotation.y = Math.PI / 2;
+                    ringR.position.x = 0.61;
+
+                    group.add(log, ringL, ringR);
+                    break;
+                }
+                case 'fire': {
+                    const fireCore = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.3, 8), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+                    const fireOuter = new THREE.Mesh(new THREE.ConeGeometry(0.6, 0.9, 8), new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.8 }));
+                    fireOuter.position.y = -0.15;
+                    group.add(fireCore, fireOuter);
+                    break;
+                }
+                case 'trap': {
+                    const metalMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9, roughness: 0.3 });
+                    const baseRing = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.08, 8, 16), metalMat);
+                    baseRing.rotation.x = Math.PI / 2;
+
+                    for(let i=0; i<8; i++) {
+                        const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.2, 4), metalMat);
+                        const angle = (i / 8) * Math.PI * 2;
+                        tooth.position.set(Math.cos(angle)*0.55, 0.1, Math.sin(angle)*0.55);
+                        group.add(tooth);
+                    }
+                    group.add(baseRing);
+                    break;
+                }
+                case 'cage': {
+                    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.0, 1.0), new THREE.MeshBasicMaterial({ color: 0x000000, wireframe: true }));
+                    group.add(frame);
+                    break;
+                }
+                case 'smog': {
+                    const smogMat = new THREE.MeshLambertMaterial({ color: 0x334155, transparent: true, opacity: 0.85 });
+                    for(let i=0; i<3; i++) {
+                        const puff = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4 + i*0.1, 1), smogMat);
+                        puff.position.set((Math.random()-0.5)*0.2, i*0.4, (Math.random()-0.5)*0.2);
+                        group.add(puff);
+                    }
+                    break;
+                }
+                case 'plastic': default: {
+                    const pMat = new THREE.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.8 });
+                    const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.8, 10), pMat);
+                    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.2, 10), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+                    cap.position.y = 0.45;
+                    group.add(bottle, cap);
+                    break;
+                }
+            }
+
+            return group;
+        }
+
+        function createHighQualityAnimal(stageIdx, isFeedingPhase = false) {
+            const group = new THREE.Group();
+            animalParts = { legs: [], flippers: [] };
+            animalHeadMesh = null;
+
+            switch(stageIdx) {
+                case 0: { // Turtle
+                    const shellMat = new THREE.MeshLambertMaterial({ color: 0x15803d });
+                    const bodyMat = new THREE.MeshLambertMaterial({ color: 0x4ade80 });
+                    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                    const whiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+                    const shell = new THREE.Mesh(new THREE.DodecahedronGeometry(0.85, 1), shellMat);
+                    shell.scale.set(1, 0.5, 1.3);
+                    shell.position.y = 0.5;
+
+                    const head = new THREE.Group();
+                    head.position.set(0, 0.45, -1.0);
+
+                    const headBase = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 12), bodyMat);
+                    headBase.scale.set(1, 0.85, 1.1);
+                    head.add(headBase);
+
+                    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.08, 0.2), new THREE.MeshBasicMaterial({ color: 0x991b1b }));
+                    mouth.position.set(0, -0.12, -0.28);
+                    head.add(mouth);
+
+                    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), whiteMat);
+                    eyeL.position.set(-0.22, 0.1, -0.22);
+                    const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
+                    pupilL.position.set(-0.24, 0.1, -0.28);
+                    
+                    const eyeR = eyeL.clone();
+                    eyeR.position.x = 0.22;
+                    const pupilR = pupilL.clone();
+                    pupilR.position.x = 0.24;
+                    head.add(eyeL, pupilL, eyeR, pupilR);
+
+                    animalHeadMesh = head;
+
+                    const flipperGeo = new THREE.BoxGeometry(0.65, 0.08, 0.35);
+                    const flipperFL = new THREE.Mesh(flipperGeo, bodyMat);
+                    flipperFL.position.set(-0.8, 0.2, -0.5);
+                    const flipperFR = new THREE.Mesh(flipperGeo, bodyMat);
+                    flipperFR.position.set(0.8, 0.2, -0.5);
+
+                    group.add(shell, head, flipperFL, flipperFR);
+                    animalParts.flippers.push(flipperFL, flipperFR);
+                    break;
+                }
+                case 1: { // Panda
+                    const whiteMat = new THREE.MeshLambertMaterial({ color: 0xf8fafc });
+                    const blackMat = new THREE.MeshLambertMaterial({ color: 0x0f172a });
+                    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                    const mouthMat = new THREE.MeshBasicMaterial({ color: 0x701a75 });
+
+                    const body = new THREE.Mesh(new THREE.SphereGeometry(0.75, 12, 12), whiteMat);
+                    body.position.y = 0.75;
+
+                    const head = new THREE.Group();
+                    head.position.set(0, 1.25, -0.3);
+
+                    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.55, 14, 14), whiteMat);
+                    head.add(headMesh);
+
+                    const snout = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 10), whiteMat);
+                    snout.position.set(0, -0.08, -0.45);
+                    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), blackMat);
+                    nose.position.set(0, 0.02, -0.62);
+                    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.06, 0.1), mouthMat);
+                    mouth.position.set(0, -0.12, -0.58);
+                    head.add(snout, nose, mouth);
+
+                    const patchL = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), blackMat);
+                    patchL.scale.set(1.2, 1, 0.5);
+                    patchL.position.set(-0.2, 0.08, -0.46);
+                    const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
+                    pupilL.position.set(-0.2, 0.08, -0.53);
+
+                    const patchR = patchL.clone();
+                    patchR.position.x = 0.2;
+                    const pupilR = pupilL.clone();
+                    pupilR.position.x = 0.2;
+                    head.add(patchL, pupilL, patchR, pupilR);
+
+                    const earL = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), blackMat);
+                    earL.position.set(-0.42, 0.42, -0.1);
+                    const earR = earL.clone();
+                    earR.position.x = 0.42;
+                    head.add(earL, earR);
+
+                    animalHeadMesh = head;
+
+                    const legGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.55, 8);
+                    for (let i = 0; i < 4; i++) {
+                        const leg = new THREE.Mesh(legGeo, blackMat);
+                        const x = (i % 2 === 0 ? -0.45 : 0.45);
+                        const z = (i < 2 ? -0.4 : 0.4);
+                        leg.position.set(x, 0.28, z);
+                        group.add(leg);
+                        animalParts.legs.push(leg);
+                    }
+
+                    group.add(body, head);
+                    break;
+                }
+                case 2: { // Jaguar
+                    const jagMat = new THREE.MeshLambertMaterial({ color: 0xf59e0b });
+                    const blackMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
+                    const pinkMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e });
+
+                    const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.65, 1.5), jagMat);
+                    body.position.y = 0.65;
+
+                    const head = new THREE.Group();
+                    head.position.set(0, 0.95, -0.85);
+
+                    const headBase = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.48, 0.55), jagMat);
+                    head.add(headBase);
+
+                    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), pinkMat);
+                    nose.position.set(0, 0, -0.32);
+                    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 0.1), blackMat);
+                    mouth.position.set(0, -0.12, -0.3);
+                    head.add(nose, mouth);
+
+                    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), blackMat);
+                    eyeL.position.set(-0.18, 0.1, -0.28);
+                    const eyeR = eyeL.clone();
+                    eyeR.position.x = 0.18;
+                    head.add(eyeL, eyeR);
+
+                    animalHeadMesh = head;
+
+                    const legGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.55, 8);
+                    for (let i = 0; i < 4; i++) {
+                        const leg = new THREE.Mesh(legGeo, jagMat);
+                        const x = (i % 2 === 0 ? -0.35 : 0.35);
+                        const z = (i < 2 ? -0.5 : 0.5);
+                        leg.position.set(x, 0.28, z);
+                        group.add(leg);
+                        animalParts.legs.push(leg);
+                    }
+                    group.add(body, head);
+                    break;
+                }
+                case 3: { // Bison
+                    const furMat = new THREE.MeshLambertMaterial({ color: 0x451a03 });
+                    const hornMat = new THREE.MeshLambertMaterial({ color: 0xe2e8f0 });
+                    const blackMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+                    const whiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                    const mouthMat = new THREE.MeshBasicMaterial({ color: 0x78350f });
+
+                    const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.0, 1.6), furMat);
+                    body.position.y = 0.85;
+
+                    const head = new THREE.Group();
+                    head.position.set(0, 1.1, -0.85);
+
+                    const headBase = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 0.7), furMat);
+                    head.add(headBase);
+
+                    const snout = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.28, 0.25), furMat);
+                    snout.position.set(0, -0.12, -0.42);
+
+                    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.16, 0.12), blackMat);
+                    nose.position.set(0, 0.02, -0.52);
+
+                    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.07, 0.12), mouthMat);
+                    mouth.position.set(0, -0.15, -0.48);
+
+                    head.add(snout, nose, mouth);
+
+                    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), whiteMat);
+                    eyeL.position.set(-0.28, 0.12, -0.36);
+                    const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), blackMat);
+                    pupilL.position.set(-0.3, 0.12, -0.42);
+
+                    const eyeR = eyeL.clone();
+                    eyeR.position.x = 0.28;
+                    const pupilR = pupilL.clone();
+                    pupilR.position.x = 0.3;
+
+                    head.add(eyeL, pupilL, eyeR, pupilR);
+
+                    const hornL = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.45, 6), hornMat);
+                    hornL.rotation.z = -Math.PI / 3;
+                    hornL.position.set(-0.45, 0.25, -0.1);
+                    const hornR = hornL.clone();
+                    hornR.rotation.z = Math.PI / 3;
+                    hornR.position.x = 0.45;
+                    head.add(hornL, hornR);
+
+                    animalHeadMesh = head;
+
+                    const legGeo = new THREE.CylinderGeometry(0.15, 0.13, 0.6, 8);
+                    for (let i = 0; i < 4; i++) {
+                        const leg = new THREE.Mesh(legGeo, furMat);
+                        const x = (i % 2 === 0 ? -0.45 : 0.45);
+                        const z = (i < 2 ? -0.55 : 0.55);
+                        leg.position.set(x, 0.3, z);
+                        group.add(leg);
+                        animalParts.legs.push(leg);
+                    }
+
+                    group.add(body, head);
+                    break;
+                }
+                case 4: { // Koala
+                    const furMat = new THREE.MeshLambertMaterial({ color: 0x94a3b8 });
+                    const darkMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+                    const innerEarMat = new THREE.MeshLambertMaterial({ color: 0xf1f5f9 });
+
+                    const body = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 12), furMat);
+                    body.position.y = 0.7;
+
+                    const head = new THREE.Group();
+                    head.position.set(0, 1.15, -0.2);
+
+                    const headBase = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 12), furMat);
+                    head.add(headBase);
+
+                    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 0.2), darkMat);
+                    nose.position.set(0, -0.05, -0.45);
+
+                    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), darkMat);
+                    eyeL.position.set(-0.18, 0.1, -0.42);
+                    const eyeR = eyeL.clone();
+                    eyeR.position.x = 0.18;
+
+                    const earL = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 10), furMat);
+                    earL.position.set(-0.45, 0.35, -0.05);
+                    const earInnerL = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 10), innerEarMat);
+                    earInnerL.position.set(-0.45, 0.35, -0.1);
+
+                    const earR = earL.clone();
+                    earR.position.x = 0.45;
+                    const earInnerR = earInnerL.clone();
+                    earInnerR.position.x = 0.45;
+
+                    head.add(nose, eyeL, eyeR, earL, earInnerL, earR, earInnerR);
+
+                    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.05, 0.1), darkMat);
+                    mouth.position.set(0, -0.22, -0.42);
+                    head.add(mouth);
+
+                    animalHeadMesh = head;
+
+                    const legGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.5, 8);
+                    for (let i = 0; i < 4; i++) {
+                        const leg = new THREE.Mesh(legGeo, furMat);
+                        const x = (i % 2 === 0 ? -0.4 : 0.4);
+                        const z = (i < 2 ? -0.35 : 0.35);
+                        leg.position.set(x, 0.25, z);
+                        group.add(leg);
+                        animalParts.legs.push(leg);
+                    }
+
+                    group.add(body, head);
+                    break;
+                }
+                case 5: { // Elephant
+                    const eMat = new THREE.MeshLambertMaterial({ color: 0x64748b });
+                    const tuskMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+                    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+
+                    const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.1, 1.8), eMat);
+                    body.position.y = 0.95;
+
+                    const head = new THREE.Group();
+                    head.position.set(0, 1.2, -0.9);
+
+                    const headBase = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), eMat);
+                    head.add(headBase);
+
+                    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), eyeMat);
+                    eyeL.position.set(-0.35, 0.15, -0.42);
+                    const eyeR = eyeL.clone();
+                    eyeR.position.x = 0.35;
+                    head.add(eyeL, eyeR);
+
+                    const earL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.6), eMat);
+                    earL.position.set(-0.5, 0, 0);
+                    const earR = earL.clone();
+                    earR.position.x = 0.5;
+                    head.add(earL, earR);
+
+                    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.0, 8), eMat);
+                    trunk.position.set(0, -0.45, -0.5);
+                    trunk.rotation.x = Math.PI / 6;
+
+                    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.1, 0.1), eyeMat);
+                    mouth.position.set(0, -0.3, -0.42);
+                    head.add(trunk, mouth);
+
+                    const tuskL = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.08, 0.6, 6), tuskMat);
+                    tuskL.rotation.x = -Math.PI/3;
+                    tuskL.position.set(-0.25, -0.2, -0.45);
+                    const tuskR = tuskL.clone();
+                    tuskR.position.x = 0.25;
+                    head.add(tuskL, tuskR);
+
+                    animalHeadMesh = head;
+
+                    const legGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.65, 8);
+                    for (let i = 0; i < 4; i++) {
+                        const leg = new THREE.Mesh(legGeo, eMat);
+                        const x = (i % 2 === 0 ? -0.5 : 0.5);
+                        const z = (i < 2 ? -0.6 : 0.6);
+                        leg.position.set(x, 0.32, z);
+                        group.add(leg);
+                        animalParts.legs.push(leg);
+                    }
+
+                    group.add(body, head);
+                    break;
+                }
+            }
+
+            const shadow = new THREE.Mesh(
+                new THREE.CircleGeometry(0.85, 16),
+                new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25 })
+            );
+            shadow.rotation.x = -Math.PI / 2;
+            shadow.position.y = 0.02;
+            group.add(shadow);
+
+            group.position.set(0, 0, 8);
+
+            if (isFeedingPhase) {
+                group.rotation.y = Math.PI;
+            } else {
+                group.rotation.y = 0;
+            }
+
+            return group;
+        }
+
+        function create3DFoodMesh(type) {
+            const group = new THREE.Group();
+
+            switch(type) {
+                case 'eucalyptus': {
+                    const branchMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+                    const leafMat = new THREE.MeshLambertMaterial({ color: 0x10b981 });
+                    const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8), branchMat);
+                    branch.position.y = 0.25;
+
+                    for (let i = 0; i < 5; i++) {
+                        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.3, 4), leafMat);
+                        leaf.rotation.z = (i % 2 === 0 ? 1 : -1) * Math.PI / 4;
+                        leaf.position.set((i % 2 === 0 ? 0.1 : -0.1), 0.1 + i * 0.08, 0);
+                        group.add(leaf);
+                    }
+                    group.add(branch);
+                    break;
+                }
+                case 'bamboo': {
+                    const mat = new THREE.MeshLambertMaterial({ color: 0x22c55e });
+                    const jointMat = new THREE.MeshLambertMaterial({ color: 0x15803d });
+                    const leafMat = new THREE.MeshLambertMaterial({ color: 0x16a34a });
+
+                    for (let i = 0; i < 3; i++) {
+                        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.25, 8), mat);
+                        stem.position.y = i * 0.25;
+                        const joint = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.04, 8), jointMat);
+                        joint.position.y = i * 0.25 + 0.12;
+
+                        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.25, 4), leafMat);
+                        leaf.rotation.z = Math.PI / 3 * (i % 2 === 0 ? 1 : -1);
+                        leaf.position.set((i % 2 === 0 ? 0.12 : -0.12), i * 0.25 + 0.1, 0);
+
+                        group.add(stem, joint, leaf);
+                    }
+                    break;
+                }
+                case 'seaweed': {
+                    const mat = new THREE.MeshLambertMaterial({ color: 0x059669 });
+                    for (let i = 0; i < 4; i++) {
+                        const strand = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.04), mat);
+                        strand.position.set((i - 1.5) * 0.12, 0.3, (Math.random() - 0.5) * 0.1);
+                        strand.rotation.z = Math.sin(i) * 0.3;
+                        group.add(strand);
+                    }
+                    break;
+                }
+                case 'burger': {
+                    const meatMat = new THREE.MeshLambertMaterial({ color: 0xb91c1c });
+                    const leafMat = new THREE.MeshLambertMaterial({ color: 0x16a34a });
+                    const meat = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22, 1), meatMat);
+                    meat.position.y = 0.22;
+                    const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.04, 0.4), leafMat);
+                    leaf.position.y = 0.1;
+                    group.add(meat, leaf);
+                    break;
+                }
+                case 'hay': {
+                    const mat = new THREE.MeshLambertMaterial({ color: 0xeab308 });
+                    const bundle = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.45, 10), mat);
+                    bundle.position.y = 0.22;
+                    group.add(bundle);
+                    break;
+                }
+                case 'banana': {
+                    const mat = new THREE.MeshLambertMaterial({ color: 0xfacc15 });
+                    for (let i = 0; i < 3; i++) {
+                        const ban = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.04, 0.45, 6), mat);
+                        ban.position.set((i - 1) * 0.1, 0.25, 0);
+                        ban.rotation.z = (i - 1) * 0.2;
+                        group.add(ban);
+                    }
+                    break;
+                }
+                case 'fish': {
+                    const mat = new THREE.MeshLambertMaterial({ color: 0x38bdf8 });
+                    const fish = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 6), mat);
+                    fish.rotation.z = Math.PI / 2;
+                    fish.position.y = 0.22;
+                    group.add(fish);
+                    break;
+                }
+                case 'candy': {
+                    const mat = new THREE.MeshLambertMaterial({ color: 0xec4899 });
+                    const candy = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), mat);
+                    candy.position.y = 0.22;
+                    group.add(candy);
+                    break;
+                }
+                case 'trash': default: {
+                    const mat = new THREE.MeshLambertMaterial({ color: 0x64748b });
+                    const capMat = new THREE.MeshLambertMaterial({ color: 0xef4444 });
+                    const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.5, 8), mat);
+                    bottle.position.y = 0.28;
+                    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 8), capMat);
+                    cap.position.y = 0.55;
+                    group.add(bottle, cap);
+                    break;
+                }
+            }
+
+            return group;
+        }
+
+        function createPowerUpItemMesh(type) {
+            const group = new THREE.Group();
+
+            if (type === 'heart') {
+                const shape = new THREE.Shape();
+                const x = 0, y = 0;
+                shape.moveTo(x + 0.25, y + 0.25);
+                shape.bezierCurveTo(x + 0.25, y + 0.25, x + 0.2, y, x, y);
+                shape.bezierCurveTo(x - 0.3, y, x - 0.3, y + 0.35, x - 0.3, y + 0.35);
+                shape.bezierCurveTo(x - 0.3, y + 0.55, x - 0.1, y + 0.77, x + 0.25, y + 0.95);
+                shape.bezierCurveTo(x + 0.6, y + 0.77, x + 0.8, y + 0.55, x + 0.8, y + 0.35);
+                shape.bezierCurveTo(x + 0.8, y + 0.35, x + 0.8, y, x + 0.5, y);
+                shape.bezierCurveTo(x + 0.35, y, x + 0.25, y + 0.25, x + 0.25, y + 0.25);
+
+                const extrudeSettings = { depth: 0.2, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.08, bevelThickness: 0.08 };
+                const heartGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                const heartMat = new THREE.MeshLambertMaterial({ color: 0xf43f5e, emissive: 0x881337 });
+                const heartMesh = new THREE.Mesh(heartGeo, heartMat);
+                heartMesh.scale.set(0.45, 0.45, 0.45);
+                heartMesh.rotation.z = Math.PI;
+                heartMesh.position.set(0.12, 0.45, 0);
+                group.add(heartMesh);
+            } else if (type === 'shield') {
+                const orbMat = new THREE.MeshLambertMaterial({ color: 0x22c55e, transparent: true, opacity: 0.6, emissive: 0x14532d });
+                const orb = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 16), orbMat);
+                orb.position.y = 0.4;
+                group.add(orb);
+
+                const leafMat = new THREE.MeshLambertMaterial({ color: 0x4ade80 });
+                for (let i = 0; i < 4; i++) {
+                    const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.4, 4), leafMat);
+                    const angle = (i / 4) * Math.PI * 2;
+                    leaf.position.set(Math.cos(angle) * 0.45, 0.4, Math.sin(angle) * 0.45);
+                    leaf.rotation.z = Math.PI / 3;
+                    leaf.rotation.y = angle;
+                    group.add(leaf);
+                }
+            } else if (type === 'clear') {
+                const coreMat = new THREE.MeshLambertMaterial({ color: 0xfacc15, emissive: 0x854d0e });
+                const core = new THREE.Mesh(new THREE.DodecahedronGeometry(0.38, 1), coreMat);
+                core.position.y = 0.4;
+                group.add(core);
+
+                const ringMat = new THREE.MeshBasicMaterial({ color: 0xfef08a, wireframe: true });
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.04, 8, 16), ringMat);
+                ring.position.y = 0.4;
+                ring.rotation.x = Math.PI / 3;
+                group.add(ring);
+            } else if (type === 'carbon') {
+                const potMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+                const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.22, 0.25, 12), potMat);
+                pot.position.y = 0.12;
+
+                const trunkMat = new THREE.MeshLambertMaterial({ color: 0x854d0e });
+                const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.35, 8), trunkMat);
+                trunk.position.y = 0.38;
+
+                const foliageMat = new THREE.MeshLambertMaterial({ color: 0x16a34a, emissive: 0x14532d });
+                const foliage = new THREE.Mesh(new THREE.DodecahedronGeometry(0.35, 1), foliageMat);
+                foliage.position.y = 0.65;
+
+                group.add(pot, trunk, foliage);
+            }
+
+            const baseRing = new THREE.Mesh(
+                new THREE.RingGeometry(0.3, 0.48, 16),
+                new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.4 })
+            );
+            baseRing.rotation.x = -Math.PI / 2;
+            baseRing.position.y = 0.02;
+            group.add(baseRing);
+
+            return group;
+        }
+
+        function buildEnvironment(stageIdx) {
+            while(scene.children.length > 0) {
+                scene.remove(scene.children[0]);
+            }
+            obstacles = [];
+            items = [];
+            document.getElementById('labels-container').innerHTML = '';
+
+            const stage = STAGES[stageIdx];
+            scene.background = new THREE.Color(stage.bgColor);
+
+            const ambient = new THREE.AmbientLight(0xffffff, 0.9);
+            scene.add(ambient);
+
+            const sun = new THREE.DirectionalLight(0xfff5ea, 1.0);
+            sun.position.set(10, 20, 10);
+            scene.add(sun);
+
+            const floorGeo = new THREE.PlaneGeometry(16, 24);
+            const floorMat = new THREE.MeshLambertMaterial({ color: stage.floorColor });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            const treeGeo = new THREE.ConeGeometry(0.6, 2.2, 6);
+            const treeMat = new THREE.MeshLambertMaterial({ color: 0x14532d });
+            for (let z = -11; z <= 11; z += 2) {
+                const treeL = new THREE.Mesh(treeGeo, treeMat);
+                treeL.position.set(-8.5, 1.1, z);
+                const treeR = new THREE.Mesh(treeGeo, treeMat);
+                treeR.position.set(8.5, 1.1, z);
+                scene.add(treeL, treeR);
+            }
+
+            const sanctuaryFloor = new THREE.Mesh(
+                new THREE.PlaneGeometry(16, 5),
+                new THREE.MeshLambertMaterial({ color: 0x15803d })
+            );
+            sanctuaryFloor.rotation.x = -Math.PI / 2;
+            sanctuaryFloor.position.set(0, 0.02, -9.5);
+            scene.add(sanctuaryFloor);
+
+            const flowerColors = [0xf43f5e, 0xfacc15, 0x38bdf8, 0xa855f7];
+            for (let i = 0; i < 18; i++) {
+                const col = flowerColors[i % flowerColors.length];
+                const flower = new THREE.Mesh(
+                    new THREE.DodecahedronGeometry(0.2, 1),
+                    new THREE.MeshLambertMaterial({ color: col })
+                );
+                const fx = (Math.random() - 0.5) * 14;
+                const fz = -8 - Math.random() * 3;
+                flower.position.set(fx, 0.2, fz);
+                scene.add(flower);
+            }
+
+            animalMesh = createHighQualityAnimal(stageIdx, false);
+            scene.add(animalMesh);
+
+            /* --- 난이도별 장애물 개수 및 속도 구분 설정 --- */
+            let obsCount = 5;
+            let baseSpeed = 0.06;
+            if (gameDifficulty === 'easy') {
+                obsCount = 3;
+                baseSpeed = 0.03; // 쉬움: 천천히 이동
+            } else if (gameDifficulty === 'hard') {
+                obsCount = 8;
+                baseSpeed = 0.10; // 어려움: 빠르게 이동
+            }
+
+            const labelsContainer = document.getElementById('labels-container');
+
+            for (let i = 0; i < obsCount; i++) {
+                const obsType = stage.obsTypes[i % stage.obsTypes.length];
+                const obsGroup = createHighQualityObstacleMesh(obsType);
+
+                const rowZ = 5 - (i * (12 / obsCount));
+                const startX = (i % 2 === 0 ? -6 : 6);
+                obsGroup.position.set(startX, 0.5, rowZ);
+                scene.add(obsGroup);
+
+                const labelEl = document.createElement('div');
+                labelEl.className = 'obs-label';
+                labelEl.innerText = stage.obsNames[i % stage.obsNames.length];
+                labelsContainer.appendChild(labelEl);
+
+                obstacles.push({
+                    mesh: obsGroup,
+                    speed: (i % 2 === 0 ? 1 : -1) * (baseSpeed + (Math.random() * 0.01)),
+                    minX: -6.5, maxX: 6.5,
+                    labelEl: labelEl
+                });
+            }
+
+            const itemTypes = ['heart', 'shield', 'clear', 'carbon'];
+            for (let i = 0; i < 3; i++) {
+                const type = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+                const itemMesh = createPowerUpItemMesh(type);
+                itemMesh.position.set((Math.random() - 0.5) * 10, 0.2, 4 - i * 3.5);
+                scene.add(itemMesh);
+
+                items.push({ mesh: itemMesh, type: type, collected: false });
+            }
+        }
+
+        function initFeeding3DStage() {
+            const container = document.getElementById('feeding-canvas-container');
+            container.innerHTML = '';
+
+            const feedbackEl = document.getElementById('feeding-feedback');
+            feedbackEl.className = 'text-xs md:text-sm font-bold text-amber-300 mt-1 h-6 flex items-center justify-center';
+            feedbackEl.innerText = '바구니의 이름표를 보고 동물이 좋아하는 먹이를 입에 드래그해 주세요!';
+
+            isEatingAnimating = false;
+            dragged3DItem = null;
+
+            feedScene = new THREE.Scene();
+            feedScene.background = new THREE.Color(0x0f172a);
+
+            feedCamera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 100);
+            const isMobile = window.innerWidth < 640;
+            feedCamera.position.set(0, isMobile ? 4.8 : 3.8, isMobile ? 11.5 : 9.0);
+            feedCamera.lookAt(0, 1.2, 0);
+
+            feedRenderer = new THREE.WebGLRenderer({ antialias: true });
+            feedRenderer.setSize(container.clientWidth, container.clientHeight);
+            feedRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(feedRenderer.domElement);
+
+            const ambient = new THREE.AmbientLight(0xffffff, 0.95);
+            feedScene.add(ambient);
+
+            const sun = new THREE.DirectionalLight(0xfff5ea, 1.1);
+            sun.position.set(5, 10, 5);
+            feedScene.add(sun);
+
+            const pedestal = new THREE.Mesh(
+                new THREE.CylinderGeometry(2.5, 2.8, 0.4, 24),
+                new THREE.MeshLambertMaterial({ color: 0x1e293b })
+            );
+            pedestal.position.set(0, -0.2, 0);
+            feedScene.add(pedestal);
+
+            feedAnimalMesh = createHighQualityAnimal(currentStageIdx, true);
+            feedAnimalMesh.position.set(0, 0, 0);
+            feedAnimalMesh.scale.set(1.3, 1.3, 1.3);
+            feedScene.add(feedAnimalMesh);
+            feedAnimalHead = animalHeadMesh;
+
+            const stage = STAGES[currentStageIdx];
+            feed3DItems = [];
+            feedBaskets = [];
+
+            const basketPositions = isMobile ? [-1.05, 0, 1.05] : [-1.4, 0, 1.4];
+            const basketMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+
+            const labelsContainer = document.getElementById('feeding-labels-container');
+            if (labelsContainer) labelsContainer.innerHTML = '';
+
+            stage.foods.forEach((food, idx) => {
+                const bx = basketPositions[idx];
+                
+                const basket = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.35, 0.25, 0.24, 16),
+                    basketMat
+                );
+                basket.position.set(bx, 0.08, 2.3);
+                feedScene.add(basket);
+                feedBaskets.push(basket);
+
+                const foodMesh = create3DFoodMesh(food.type);
+                foodMesh.position.set(bx, 0.3, 2.3);
+                foodMesh.scale.set(0.9, 0.9, 0.9);
+                feedScene.add(foodMesh);
+
+                const labelEl = document.createElement('div');
+                labelEl.className = 'basket-label';
+                labelEl.innerText = food.name;
+                if (labelsContainer) labelsContainer.appendChild(labelEl);
+
+                feed3DItems.push({
+                    mesh: foodMesh,
+                    basketMesh: basket,
+                    data: food,
+                    labelEl: labelEl,
+                    homePos: new THREE.Vector3(bx, 0.3, 2.3)
+                });
+            });
+
+            container.addEventListener('pointerdown', onFeedPointerDown);
+            container.addEventListener('pointermove', onFeedPointerMove);
+            container.addEventListener('pointerup', onFeedPointerUp);
+
+            setTimeout(updateFeedingLabels, 50);
+        }
+
+        function updateFeedingLabels() {
+            if (!feedCamera || !isFeedingActive) return;
+            const container = document.getElementById('feeding-canvas-container');
+            if (!container) return;
+
+            const width = container.clientWidth || window.innerWidth;
+            const height = container.clientHeight || window.innerHeight;
+
+            feed3DItems.forEach(item => {
+                if (!item.labelEl) return;
+                const tempV = new THREE.Vector3();
+                item.basketMesh.getWorldPosition(tempV);
+                tempV.y -= 0.28; 
+                tempV.project(feedCamera);
+
+                const x = (tempV.x * 0.5 + 0.5) * width;
+                const y = (tempV.y * -0.5 + 0.5) * height;
+
+                item.labelEl.style.left = `${x}px`;
+                item.labelEl.style.top = `${y}px`;
+            });
+        }
+
+        function onFeedPointerDown(e) {
+            if (isEatingAnimating) return;
+            const container = document.getElementById('feeding-canvas-container');
+            const rect = container.getBoundingClientRect();
+            mouseVec.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
+            mouseVec.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouseVec, feedCamera);
+            const intersects = raycaster.intersectObjects(feed3DItems.map(item => item.mesh), true);
+
+            if (intersects.length > 0) {
+                let hitObj = intersects[0].object;
+                while (hitObj.parent && !feed3DItems.some(i => i.mesh === hitObj)) {
+                    hitObj = hitObj.parent;
+                }
+                const found = feed3DItems.find(i => i.mesh === hitObj);
+                if (found) {
+                    dragged3DItem = found;
+                    dragged3DItem.mesh.scale.set(1.2, 1.2, 1.2);
+                }
+            }
+        }
+
+        function onFeedPointerMove(e) {
+            if (!dragged3DItem || isEatingAnimating) return;
+            const container = document.getElementById('feeding-canvas-container');
+            const rect = container.getBoundingClientRect();
+            mouseVec.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
+            mouseVec.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouseVec, feedCamera);
+            const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), -1.5);
+            const targetPos = new THREE.Vector3();
+            raycaster.ray.intersectPlane(planeZ, targetPos);
+
+            if (targetPos) {
+                dragged3DItem.mesh.position.copy(targetPos);
+            }
+        }
+
+        function onFeedPointerUp() {
+            if (!dragged3DItem || isEatingAnimating) return;
+
+            const feedbackEl = document.getElementById('feeding-feedback');
+            const mouthPos = new THREE.Vector3(0, 1.6, 0.4);
+            const distToMouth = dragged3DItem.mesh.position.distanceTo(mouthPos);
+
+            const customYumMessages = [
+                "😋 싱싱한 바다 해조류를 맛있게 냠냠 먹고 있어요!",
+                "😋 아삭아삭 맛있는 대나무를 오물오물 먹고 있어요!",
+                "😋 정글에서 모은 신선한 먹이를 기분 좋게 먹고 있어요!",
+                "😋 고소하고 신선한 대평원 건초를 오물오물 먹고 있어요!",
+                "😋 향긋한 유칼립투스 잎을 오물오물 기분 좋게 먹고 있어요!",
+                "😋 달콤한 사바나 바나나와 열매를 코로 쏙 집어서 먹고 있어요!"
+            ];
+
+            if (distToMouth < 1.8) {
+                if (dragged3DItem.data.correct) {
+                    isEatingAnimating = true;
+                    sounds.playYum();
+                    feedbackEl.className = 'text-xs md:text-sm font-bold text-emerald-400 animate-pulse';
+                    feedbackEl.innerText = customYumMessages[currentStageIdx];
+
+                    let chewCount = 0;
+                    const chewInterval = setInterval(() => {
+                        chewCount++;
+                        if (feedAnimalHead) {
+                            feedAnimalHead.position.y += (chewCount % 2 === 0 ? 0.12 : -0.12);
+                            feedAnimalHead.rotation.x = Math.sin(chewCount) * 0.25;
+                        }
+                        if (chewCount > 8) {
+                            clearInterval(chewInterval);
+                            setTimeout(() => {
+                                document.getElementById('feeding-modal').classList.add('hidden');
+                                isEatingAnimating = false;
+                                onStageSuccess();
+                            }, 800);
+                        }
+                    }, 120);
+
+                    dragged3DItem.mesh.position.copy(mouthPos);
+                    dragged3DItem.mesh.scale.set(0.1, 0.1, 0.1);
+                } else {
+                    sounds.playWrong();
+                    feedbackEl.className = 'text-xs md:text-sm font-bold text-red-400';
+                    feedbackEl.innerText = `❌ [${dragged3DItem.data.name}] 은(는) 이 동물이 먹는 음식이 아니에요!`;
+
+                    let shake = 0;
+                    const shakeInterval = setInterval(() => {
+                        shake++;
+                        if (feedAnimalHead) feedAnimalHead.rotation.y = Math.sin(shake) * 0.35;
+                        if (shake > 6) {
+                            clearInterval(shakeInterval);
+                            if (feedAnimalHead) feedAnimalHead.rotation.y = 0;
+                        }
+                    }, 80);
+
+                    dragged3DItem.mesh.position.copy(dragged3DItem.homePos);
+                    dragged3DItem.mesh.scale.set(1.2, 1.2, 1.2);
+                }
+            } else {
+                dragged3DItem.mesh.position.copy(dragged3DItem.homePos);
+                dragged3DItem.mesh.scale.set(1.2, 1.2, 1.2);
+            }
+
+            dragged3DItem = null;
+        }
+
+        function initEngine() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 17, 14);
+            camera.lookAt(0, 0, -1);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            window.addEventListener('keydown', (e) => handleKey(e, true));
+            window.addEventListener('keyup', (e) => handleKey(e, false));
+            window.addEventListener('resize', onWindowResize);
+
+            bindDpad('dpad-up', 'Up');
+            bindDpad('dpad-down', 'Down');
+            bindDpad('dpad-left', 'Left');
+            bindDpad('dpad-right', 'Right');
+
+            loadStage(0);
+            animate();
+        }
+
+        function bindDpad(btnId, direction) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            const startHandler = (e) => { e.preventDefault(); keyState[direction] = true; };
+            const endHandler = (e) => { e.preventDefault(); keyState[direction] = false; };
+            btn.addEventListener('touchstart', startHandler);
+            btn.addEventListener('touchend', endHandler);
+            btn.addEventListener('mousedown', startHandler);
+            btn.addEventListener('mouseup', endHandler);
+            btn.addEventListener('mouseleave', endHandler);
+        }
+
+        function handleKey(e, isPressed) {
+            if (['ArrowUp', 'KeyW'].includes(e.code)) keyState.Up = isPressed;
+            if (['ArrowDown', 'KeyS'].includes(e.code)) keyState.Down = isPressed;
+            if (['ArrowLeft', 'KeyA'].includes(e.code)) keyState.Left = isPressed;
+            if (['ArrowRight', 'KeyD'].includes(e.code)) keyState.Right = isPressed;
+        }
+
+        function updatePlayerMovement() {
+            if (!animalMesh || isStageCleared || playerHp <= 0 || isFeedingActive) return;
+
+            const moveSpeed = 0.16;
+            let moved = false;
+
+            if (keyState.Up) {
+                animalMesh.position.z -= moveSpeed;
+                animalMesh.rotation.y = 0;
+                moved = true;
+            }
+            if (keyState.Down) {
+                animalMesh.position.z += moveSpeed;
+                animalMesh.rotation.y = Math.PI;
+                moved = true;
+            }
+            if (keyState.Left) {
+                animalMesh.position.x -= moveSpeed;
+                animalMesh.rotation.y = Math.PI / 2;
+                moved = true;
+            }
+            if (keyState.Right) {
+                animalMesh.position.x += moveSpeed;
+                animalMesh.rotation.y = -Math.PI / 2;
+                moved = true;
+            }
+
+            animalMesh.position.x = Math.max(-7.2, Math.min(7.2, animalMesh.position.x));
+            animalMesh.position.z = Math.max(-10.0, Math.min(10.0, animalMesh.position.z));
+
+            if (moved) {
+                const time = Date.now() * 0.012;
+                animalParts.legs.forEach((leg, idx) => {
+                    leg.rotation.x = Math.sin(time + idx * Math.PI) * 0.6;
+                });
+                animalParts.flippers.forEach((flipper, idx) => {
+                    flipper.rotation.y = Math.sin(time) * 0.4 * (idx === 0 ? 1 : -1);
+                });
+                if (Math.random() < 0.15) sounds.playStep();
+            } else {
+                animalParts.legs.forEach(leg => leg.rotation.x = 0);
+            }
+        }
+
+        function updateLabels() {
+            obstacles.forEach(obs => {
+                if (!obs.labelEl) return;
+                const tempV = new THREE.Vector3();
+                obs.mesh.getWorldPosition(tempV);
+                tempV.y += 1.1;
+                tempV.project(camera);
+
+                const x = (tempV.x *  .5 + .5) * window.innerWidth;
+                const y = (tempV.y * -.5 + .5) * window.innerHeight;
+
+                obs.labelEl.style.left = `${x}px`;
+                obs.labelEl.style.top = `${y}px`;
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-item');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 2000);
+        }
+
+        function checkCollisions() {
+            if (!animalMesh || isStageCleared || isFeedingActive) return;
+
+            obstacles.forEach(obs => {
+                const dist = animalMesh.position.distanceTo(obs.mesh.position);
+                if (dist < 1.2) {
+                    sounds.playHit();
+                    if (hasShield) {
+                        hasShield = false;
+                        updateHudShield();
+                        animalMesh.position.z += 1.6;
+                    } else {
+                        playerHp--;
+                        updateHudHp();
+                        animalMesh.position.set(0, 0, 8);
+                        if (playerHp <= 0) {
+                            document.getElementById('gameover-modal').classList.remove('hidden');
+                        }
+                    }
+                }
+            });
+
+            items.forEach(item => {
+                if (!item.collected) {
+                    const dist = animalMesh.position.distanceTo(item.mesh.position);
+                    if (dist < 1.2) {
+                        item.collected = true;
+                        scene.remove(item.mesh);
+                        sounds.playItem();
+
+                        if (item.type === 'heart') {
+                            playerHp = Math.min(3, playerHp + 1);
+                            updateHudHp();
+                            showToast("💖 생명 하트! 목숨 +1 회복");
+                        } else if (item.type === 'shield') {
+                            hasShield = true;
+                            updateHudShield();
+                            showToast("🛡️ 나뭇잎 쉴드! 충돌 1회 방어");
+                        } else if (item.type === 'clear') {
+                            freezeTimer = 120; // 2초간 (60fps 기준 120프레임) 장애물 멈춤
+                            showToast("❄️ 장애물 얼음! 2초간 멈춤!");
+                        } else if (item.type === 'carbon') {
+                            freezeTimer = 180;
+                            hasShield = true;
+                            updateHudShield();
+                            showToast("🌱 탄소 줄이기! 위협 정지 & 보호막");
+                        }
+                    }
+                }
+            });
+
+            if (animalMesh.position.z <= -6.0) {
+                isStageCleared = true;
+                isFeedingActive = true;
+                sounds.playSuccess();
+                document.getElementById('feeding-modal').classList.remove('hidden');
+                initFeeding3DStage();
+            }
+        }
+
+        function loadStage(idx) {
+            currentStageIdx = idx;
+            isStageCleared = false;
+            isFeedingActive = false;
+            hasShield = false;
+            freezeTimer = 0;
+            updateHudShield();
+
+            const stage = STAGES[idx];
+            document.getElementById('hud-stage-num').innerText = stage.id;
+            document.getElementById('hud-stage-name').innerText = `${stage.continent} (${stage.location})`;
+            document.getElementById('hud-animal-name').innerText = `구출 대상: ${stage.animalName} ${stage.animalIcon}`;
+
+            buildEnvironment(idx);
+        }
+
+        function updateHudHp() {
+            const hpContainer = document.getElementById('hud-hp');
+            hpContainer.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                if (i < playerHp) {
+                    hpContainer.innerHTML += `<i class="fa-solid fa-heart"></i>`;
+                } else {
+                    hpContainer.innerHTML += `<i class="fa-regular fa-heart text-slate-600"></i>`;
+                }
+            }
+        }
+
+        function updateHudShield() {
+            const shieldEl = document.getElementById('hud-shield');
+            if (hasShield) {
+                shieldEl.classList.remove('hidden');
+            } else {
+                shieldEl.classList.add('hidden');
+            }
+        }
+
+        function onStageSuccess() {
+            const stage = STAGES[currentStageIdx];
+
+            document.getElementById('card-title').innerText = `${stage.continent} 구출 성공!`;
+            document.getElementById('card-subtitle').innerText = `${stage.animalName}을(를) 안전한 보금자리로 구출했습니다.`;
+            document.getElementById('card-icon').innerText = stage.animalIcon;
+            document.getElementById('card-animal-name').innerText = stage.animalName;
+            document.getElementById('card-status').innerText = `멸종위기 등급: ${stage.status}`;
+            document.getElementById('card-habitat-desc').innerText = stage.habitatDesc;
+            document.getElementById('card-threat-desc').innerText = stage.threatDesc;
+            document.getElementById('card-action-desc').innerText = stage.actionDesc;
+
+            const nextBtn = document.getElementById('btn-next-stage');
+            nextBtn.disabled = false;
+            nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+            if (currentStageIdx >= STAGES.length - 1) {
+                nextBtn.innerText = "🏆 수호대 임명장 받기 ➡️";
+            } else {
+                nextBtn.innerText = "다음 대륙으로 이동 ➡️";
+            }
+
+            // 20초 타이머 초기화 및 시작
+            studyTimerLeft = 20;
+            const timerBadge = document.getElementById('study-timer-badge');
+            const timerSecEl = document.getElementById('study-timer-sec');
+            timerSecEl.innerText = studyTimerLeft;
+            timerBadge.classList.remove('bg-emerald-500/20', 'border-emerald-400/40');
+            timerBadge.classList.add('bg-amber-500/20', 'border-amber-400/40', 'animate-pulse');
+
+            if (studyTimerInterval) clearInterval(studyTimerInterval);
+            studyTimerInterval = setInterval(() => {
+                studyTimerLeft--;
+                if (studyTimerLeft <= 0) {
+                    studyTimerLeft = 0;
+                    clearInterval(studyTimerInterval);
+                    timerBadge.classList.remove('bg-amber-500/20', 'border-amber-400/40', 'animate-pulse');
+                    timerBadge.classList.add('bg-emerald-500/20', 'border-emerald-400/40');
+                }
+                timerSecEl.innerText = studyTimerLeft;
+            }, 1000);
+
+            document.getElementById('success-modal').classList.remove('hidden');
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (!isFeedingActive) {
+                updatePlayerMovement();
+
+                let speedFactor = 1.0;
+                if (freezeTimer > 0) {
+                    freezeTimer--;
+                    speedFactor = 0.0; // 2초간 완전히 동작 멈춤
+                }
+
+                obstacles.forEach(obs => {
+                    obs.mesh.position.x += obs.speed * speedFactor;
+                    if (speedFactor > 0) {
+                        obs.mesh.rotation.y += 0.02;
+                    }
+                    if (obs.mesh.position.x > obs.maxX || obs.mesh.position.x < obs.minX) {
+                        obs.speed *= -1;
+                    }
+                });
+
+                updateLabels();
+
+                items.forEach(item => {
+                    if (!item.collected) {
+                        item.mesh.rotation.y += 0.03;
+                        item.mesh.position.y = Math.sin(Date.now() * 0.005) * 0.1;
+                    }
+                });
+
+                checkCollisions();
+                renderer.render(scene, camera);
+            } else {
+                if (feedAnimalMesh && !isEatingAnimating) {
+                    feedAnimalMesh.rotation.y = Math.PI + Math.sin(Date.now() * 0.002) * 0.15;
+                }
+                updateFeedingLabels();
+                if (feedRenderer && feedScene && feedCamera) {
+                    feedRenderer.render(feedScene, feedCamera);
+                }
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            if (feedCamera && feedRenderer) {
+                const container = document.getElementById('feeding-canvas-container');
+                if (container) {
+                    const isMobile = window.innerWidth < 640;
+                    feedCamera.position.set(0, isMobile ? 3.5 : 3.0, isMobile ? 7.8 : 6.8);
+                    feedCamera.aspect = container.clientWidth / container.clientHeight;
+                    feedCamera.updateProjectionMatrix();
+                    feedRenderer.setSize(container.clientWidth, container.clientHeight);
+                }
+            }
+        }
+
+        window.onload = () => {
+            initEngine();
+
+            const diffBtns = ['diff-easy', 'diff-normal', 'diff-hard'];
+            diffBtns.forEach(id => {
+                document.getElementById(id).addEventListener('click', (e) => {
+                    diffBtns.forEach(b => document.getElementById(b).classList.remove('active'));
+                    e.currentTarget.classList.add('active');
+                    if (id === 'diff-easy') gameDifficulty = 'easy';
+                    if (id === 'diff-normal') gameDifficulty = 'normal';
+                    if (id === 'diff-hard') gameDifficulty = 'hard';
+                });
+            });
+
+            document.getElementById('btn-start-game').addEventListener('click', () => {
+                document.getElementById('start-modal').classList.add('hidden');
+                sounds.init();
+                loadStage(0);
+            });
+
+            document.getElementById('btn-reset-stage').addEventListener('click', () => {
+                playerHp = 3;
+                updateHudHp();
+                loadStage(currentStageIdx);
+            });
+
+            document.getElementById('btn-next-stage').addEventListener('click', () => {
+                // 20초가 지나지 않은 상태에서 버튼을 눌렀을 때
+                if (studyTimerLeft > 0) {
+                    const alertModal = document.getElementById('rule-alert-modal');
+                    const alertIcon = document.getElementById('rule-alert-icon');
+                    const alertTitle = document.getElementById('rule-alert-title');
+                    const alertMsg = document.getElementById('rule-alert-msg');
+                    const alertBtn = document.getElementById('btn-rule-alert-close');
+
+                    if (currentStageIdx === 0) {
+                        // 1단계 (유럽): 팝업 경고 메시지 띄우기 (게임 계속 유지)
+                        alertIcon.innerText = "⚠️";
+                        alertTitle.innerText = "정보 확인 안내";
+                        alertTitle.className = "text-xl font-extrabold text-amber-300 mb-2";
+                        alertMsg.innerText = "멸종위기동물에 대한 정보를 꼼꼼히 확인해 주세요!\n20초 후에 다음 대륙으로 이동할 수 있습니다.\n\n이 게임은 멸종위기동물의 소중함을 알리기 위한 탐구 게임이므로, 정보를 확인하지 않고 넘어가려 하면 게임이 끝납니다.";
+                        alertBtn.innerText = "정보 확인하러 돌아가기 ➡️";
+                        alertBtn.onclick = () => {
+                            alertModal.classList.add('hidden');
+                        };
+                        alertModal.classList.remove('hidden');
+                        return;
+                    } else {
+                        // 2단계~6단계 (아시아 ~ 아프리카): 경고 없이 즉시 게임 강제 종료 및 다음 대륙 예고편 표시
+                        if (studyTimerInterval) clearInterval(studyTimerInterval);
+                        document.getElementById('success-modal').classList.add('hidden');
+                        
+                        const nextStage = STAGES[currentStageIdx + 1];
+                        let previewText = "";
+                        if (nextStage) {
+                            previewText = `\n\n🔍 [다음 대륙 예고편]\n다음 대륙은 '${nextStage.continent}'입니다!\n${nextStage.animalIcon} '${nextStage.animalName}'이(가) ${nextStage.location}에서 여러분의 구출을 기다리고 있어요!`;
+                        }
+
+                        alertIcon.innerText = "🚨";
+                        alertTitle.innerText = "탐구 종료!";
+                        alertTitle.className = "text-xl font-extrabold text-red-400 mb-2";
+                        alertMsg.innerText = `🚨 이 게임은 멸종위기동물에 대한 정보를 알리기 위해 만든 탐구 게임이에요!\n\n동물에 대한 소중한 정보와 환경 보호 약속을 확인하지 않아 이번 구출 탐구가 종료되었습니다.${previewText}\n\n다음 번에는 동물의 이야기를 더 깊이 알아봐 주세요!`;
+                        alertBtn.innerText = "창 닫기 (탐구 완료)";
+                        alertBtn.onclick = () => {
+                            // 완전히 막고 화면을 어둡게 유지
+                            alertBtn.disabled = true;
+                            alertBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                        };
+                        alertModal.classList.remove('hidden');
+                        return;
+                    }
+                }
+
+                // 20초 이상 지난 경우 정상 이동
+                if (studyTimerInterval) clearInterval(studyTimerInterval);
+                document.getElementById('success-modal').classList.add('hidden');
+                
+                if (currentStageIdx < STAGES.length - 1) {
+                    loadStage(currentStageIdx + 1);
+                } else {
+                    document.getElementById('certificate-modal').classList.remove('hidden');
+                }
+            });
+
+            document.getElementById('btn-retry').addEventListener('click', () => {
+                document.getElementById('gameover-modal').classList.add('hidden');
+                // 일반 장애물 충돌로 인한 게임오버 시의 기본 문구 복원
+                const gameoverModal = document.getElementById('gameover-modal');
+                gameoverModal.querySelector('h2').innerText = "동물이 부상을 입었어요!";
+                gameoverModal.querySelector('p').innerText = "위험한 장애물에 부딪혀 체력이 모두 소진되었습니다.\n장애물을 피하고 아이템을 활용해 다시 도전해 보세요!";
+                
+                playerHp = 3;
+                updateHudHp();
+                loadStage(currentStageIdx);
+            });
+        };
+    </script>
+</body>
+</html>
